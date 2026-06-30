@@ -1,0 +1,8 @@
+# Build artifacts
+*.o
+notepad
+notepad.exe
+
+# Editor / OS noise
+*.swp
+.DS_Store

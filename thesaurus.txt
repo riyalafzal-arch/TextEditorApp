@@ -1,0 +1,40 @@
+happy: glad, joyful, cheerful, content
+sad: unhappy, sorrowful, gloomy, miserable
+big: large, huge, enormous, massive
+small: little, tiny, miniature, compact
+fast: quick, rapid, swift, speedy
+slow: sluggish, leisurely, gradual
+good: fine, great, excellent, superb
+bad: poor, awful, terrible, inferior
+beautiful: lovely, gorgeous, attractive, pretty
+ugly: unattractive, hideous, plain
+smart: clever, intelligent, bright, sharp
+strong: powerful, mighty, sturdy, tough
+weak: feeble, frail, fragile
+brave: courageous, bold, fearless
+afraid: scared, frightened, fearful
+angry: mad, furious, irritated
+calm: peaceful, serene, tranquil
+rich: wealthy, affluent, prosperous
+poor: needy, broke, impoverished
+old: ancient, aged, elderly
+new: fresh, modern, recent, novel
+cold: chilly, freezing, frosty
+hot: warm, burning, scorching
+easy: simple, effortless, straightforward
+hard: difficult, tough, challenging
+begin: start, commence, initiate
+end: finish, conclude, terminate
+help: assist, aid, support
+make: create, build, produce, construct
+look: see, watch, observe, view
+talk: speak, chat, converse
+walk: stroll, wander, march
+quiet: silent, hushed, noiseless
+loud: noisy, deafening, booming
+clean: tidy, spotless, neat
+dirty: filthy, grimy, messy
+funny: amusing, hilarious, comical
+important: crucial, vital, significant
+idea: concept, notion, thought
+quick: fast, swift, speedy, brisk
