@@ -127,7 +127,7 @@ static void collect_dfs(const TrieNode *node, char *buf, int depth,
 
 /* ADT operation: COLLECT up to N words under a prefix. */
 int trie_collect(const Trie *t, const char *prefix,
-                 char results[][TRIE_MAX_WORD], int max)
+                    char results[][TRIE_MAX_WORD], int max)
 {
     const TrieNode *node = find_node(t, prefix);
     if (!node || max <= 0) return 0;

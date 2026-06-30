@@ -31,7 +31,7 @@ void enable_raw_mode(void)
         GetConsoleMode(g_hOut, &g_orig_out_mode)) {
         g_have_mode = 1;
         SetConsoleMode(g_hOut,
-                       g_orig_out_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+                        g_orig_out_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
     }
 }
 
