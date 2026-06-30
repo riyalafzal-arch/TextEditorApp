@@ -38,6 +38,17 @@ typedef struct {
     size_t cap;
 } Doc;
 
+/* The completion list currently drawn on screen. It is the single
+ * source of truth for "what the user can accept": Tab takes item 0, and
+ * pressing a digit 1..count takes that item. count == 0 means no list
+ * is showing, so Tab and digits do nothing special. */
+typedef struct {
+    char items[MAX_SUGGEST][TRIE_MAX_WORD];
+    int  count;
+} Suggestions;
+
+static Suggestions g_sugg = { .count = 0 };
+
 static void doc_init(Doc *d)
 {
     d->cap  = 1024;
@@ -170,6 +181,9 @@ static void render_completions(const Doc *doc, const Trie *trie)
     char word[TRIE_MAX_WORD];
     doc_current_word(doc, word, sizeof word);
 
+    /* Nothing to offer -> remember "no list" so Tab/digits stay inert. */
+    g_sugg.count = 0;
+
     /* Only suggest once the user has committed to a word (>= 2 chars). */
     if (strlen(word) < 2) { draw_below(NULL); return; }
 
@@ -177,8 +191,9 @@ static void render_completions(const Doc *doc, const Trie *trie)
     if (!to_lower_alpha(word, prefix))   { draw_below(NULL); return; }
     if (!trie_has_prefix(trie, prefix))  { draw_below(NULL); return; }
 
-    char comps[MAX_SUGGEST][TRIE_MAX_WORD];
-    int  ncomp = trie_collect(trie, prefix, comps, MAX_SUGGEST);
+    /* Collect straight into the on-screen state so what the user sees is
+     * exactly what Tab / the number keys will accept. */
+    g_sugg.count = trie_collect(trie, prefix, g_sugg.items, MAX_SUGGEST);
 
     char nexts[TRIE_ALPHABET + 1];
     int  nnext = trie_next_letters(trie, prefix, nexts);
@@ -186,11 +201,12 @@ static void render_completions(const Doc *doc, const Trie *trie)
     /* Build the two-line block. The leading "  " indents it slightly. */
     char block[1024];
     int off = snprintf(block, sizeof block, "  completions:");
-    for (int i = 0; i < ncomp && off < (int)sizeof block - 2; i++)
+    for (int i = 0; i < g_sugg.count && off < (int)sizeof block - 2; i++)
         off += snprintf(block + off, sizeof block - off,
-                        " %d.%s", i + 1, comps[i]);
+                        " %d.%s", i + 1, g_sugg.items[i]);
 
-    off += snprintf(block + off, sizeof block - off, "\r\n  next letters:");
+    off += snprintf(block + off, sizeof block - off,
+                    "  (Tab/1-%d to pick)\r\n  next letters:", g_sugg.count);
     for (int i = 0; i < nnext && off < (int)sizeof block - 2; i++)
         off += snprintf(block + off, sizeof block - off, " %c", nexts[i]);
 
@@ -201,6 +217,9 @@ static void render_completions(const Doc *doc, const Trie *trie)
  * the suggestion area, or clear the area if there are none. */
 static void render_synonyms(const char *finished_word, const BST *bst)
 {
+    /* The word is finished: there is no completion list to pick from. */
+    g_sugg.count = 0;
+
     if (!finished_word[0]) { draw_below(NULL); return; }
 
     char key[BST_MAX_WORD];
@@ -226,7 +245,7 @@ static void print_header(void)
     fputs("\r\n", stdout);
     fputs("==== Smart Notepad ==========================================\r\n", stdout);
     fputs(" Trie -> live autocomplete     BST -> synonym thesaurus\r\n", stdout);
-    fputs(" Tab: accept   Ctrl+S: save   Ctrl+Q: quit\r\n", stdout);
+    fputs(" Tab / 1-5: pick suggestion   Ctrl+S: save   Ctrl+Q: quit\r\n", stdout);
     fputs("-------------------------------------------------------------\r\n", stdout);
     fflush(stdout);
 }
@@ -328,21 +347,18 @@ static void do_save(const Doc *doc)
 }
 
 /* =================================================================== */
-/*  Tab: replace the typed partial word with the top completion.       */
+/*  Accept a suggestion: replace the typed partial word with the chosen */
+/*  completion. `index` is 0-based into the on-screen list (Tab uses 0, */
+/*  the number keys use 1..count-1). Does nothing if the index is out   */
+/*  of range, so callers do not need to pre-validate.                   */
 /* =================================================================== */
-static void accept_completion(Doc *doc, const Trie *trie, const BST *bst)
+static void accept_suggestion(Doc *doc, const BST *bst, int index)
 {
+    if (index < 0 || index >= g_sugg.count) return;
+    const char *full = g_sugg.items[index];
+
     char word[TRIE_MAX_WORD];
     doc_current_word(doc, word, sizeof word);
-    if (strlen(word) < 2) return;       /* nothing meaningful to accept */
-
-    char prefix[TRIE_MAX_WORD];
-    if (!to_lower_alpha(word, prefix)) return;
-
-    char comps[MAX_SUGGEST][TRIE_MAX_WORD];
-    if (trie_collect(trie, prefix, comps, MAX_SUGGEST) <= 0) return;
-
-    const char *full = comps[0];        /* the top suggestion           */
     size_t typed = strlen(word);
 
     /* Erase the partial word from the screen and the document... */
@@ -431,7 +447,7 @@ int main(void)
             break;
 
         case KEY_TAB:
-            accept_completion(&doc, trie, bst);
+            accept_suggestion(&doc, bst, 0);   /* Tab = top suggestion */
             break;
 
         case KEY_BACKSPACE:
@@ -461,6 +477,12 @@ int main(void)
         }
 
         default:
+            /* While a completion list is showing, the digits 1..count
+             * pick that numbered suggestion instead of being typed. */
+            if (g_sugg.count > 0 && k >= '1' && k <= '0' + g_sugg.count) {
+                accept_suggestion(&doc, bst, k - '1');
+                break;
+            }
             /* Any other printable ASCII character is typed into the doc. */
             if (k >= 32 && k < 127) {
                 doc_push(&doc, (char)k);
