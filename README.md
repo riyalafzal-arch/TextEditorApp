@@ -56,6 +56,13 @@ Cara paling gampang — satu baris langsung jalan:
 gcc *.c -o program && ./program
 ```
 
+Kalau `*.c` malah error (mis. `Invalid argument`), sebut file-nya langsung —
+ini paling aman:
+
+```sh
+gcc main.c trie.c bst.c platform.c -o program && ./program
+```
+
 Atau pakai Makefile yang sudah disediakan:
 
 ```sh
@@ -72,12 +79,18 @@ make          # build ./program
 ### Windows (MinGW gcc)
 
 Pasang [MinGW-w64](https://www.mingw-w64.org/) supaya `gcc` ada di PATH, lalu
-dari `cmd` atau PowerShell:
+dari `cmd`, PowerShell, atau MINGW64 (Git Bash):
 
 ```sh
-gcc *.c -o program.exe
+gcc main.c trie.c bst.c platform.c -o program.exe
 program.exe
 ```
+
+> Kenapa file-nya disebut satu per satu, bukan `*.c`? Di `cmd`/PowerShell
+> (dan saat folder yang dipilih salah), tanda `*.c` tidak diubah jadi daftar
+> file, jadi gcc menerima teks mentah `*.c` dan error
+> `cc1.exe: fatal error: *.c: Invalid argument`. Menyebut nama file langsung
+> selalu aman.
 
 Kode sumber yang sama bisa di-compile tanpa diubah: `platform.c` otomatis
 memilih Windows Console API (`_getch` dari `conio.h`, plus
@@ -100,6 +113,27 @@ dengan yang lebih besar. File yang hilang atau kosong ditangani dengan aman
 
 Untuk memakai data lebih besar, cukup ganti file ini (nama/format tetap sama)
 atau ubah konstanta `DICT_PATH` / `THES_PATH` di bagian atas `main.c`.
+
+---
+
+## Troubleshooting
+
+**`cc1.exe: fatal error: *.c: Invalid argument`** (atau `*.c: No such file`)
+Tanda `*.c` tidak ke-expand jadi daftar file — biasanya karena kamu sedang
+**bukan di folder yang berisi file `.c`**. Cek dulu:
+
+```sh
+ls *.c     # harus muncul: main.c trie.c bst.c platform.c
+```
+
+Kalau tidak muncul, pindah ke folder yang benar (`cd nama-folder-proyek`) lalu
+ulangi. Cara paling pasti: sebut nama file langsung saat compile —
+`gcc main.c trie.c bst.c platform.c -o program`.
+
+**Autocomplete / sinonim tidak muncul**
+Pastikan kamu menjalankan program dari folder yang sama dengan `dictionary.txt`
+dan `thesaurus.txt`. Kalau file itu tidak ketemu, program tetap jalan tapi
+menampilkan catatan bahwa fitur tersebut dimatikan.
 
 ---
 
