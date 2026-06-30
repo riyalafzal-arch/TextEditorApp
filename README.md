@@ -1,111 +1,115 @@
 # Smart Notepad
 
-A small cross-platform command-line "smart notepad" written in C for a
-data-structures course. You type freely into a growing document and the
-program helps you live, character-by-character, using two classic tree ADTs:
+Aplikasi "notepad pintar" berbasis terminal (CLI) yang ditulis dengan bahasa C
+untuk mata kuliah struktur data. Kamu mengetik bebas ke dalam sebuah dokumen
+yang terus bertambah, dan program membantumu secara *live* (per karakter)
+menggunakan dua ADT pohon klasik:
 
-| Feature                         | Data structure        |
-| ------------------------------- | --------------------- |
-| Live word **autocompletion**    | **Trie** (prefix tree) |
-| Word **synonyms (thesaurus)**   | **Binary Search Tree** |
+| Fitur                                | Struktur Data            |
+| ------------------------------------ | ------------------------ |
+| **Autocomplete** kata secara live    | **Trie** (pohon prefix)  |
+| **Sinonim (tesaurus)** kata          | **Binary Search Tree**   |
 
-The terminal UI is intentionally plain — no colors, no ghost text — but
-typing is **live** (each keystroke is handled immediately, not line by line).
-
----
-
-## How it behaves
-
-- Start typing into an empty document. Everything you type is appended to a
-  document buffer (letters, words, sentences, paragraphs).
-- Once the **current word** reaches 2+ letters, a suggestion block appears on
-  the line(s) **below the cursor**: up to 5 numbered Trie completions plus the
-  possible **next letters**. It is redrawn on every keystroke, so it never goes
-  stale, and the cursor stays where you are typing.
-- Press **Space** or **Enter** to finish a word. The finished word is looked up
-  in the BST thesaurus; if it has synonyms they are shown below the cursor.
-- Press **Tab** to accept the top completion: the partial word is replaced with
-  the full word, a space is added, and its synonyms are looked up.
-
-This is an **append-only** notepad: there is no arrow-key navigation or editing
-in the middle of already-typed text.
-
-### Controls
-
-| Key        | Action                                            |
-| ---------- | ------------------------------------------------- |
-| any letter | type into the document (live autocomplete)        |
-| Space / Enter | finish the current word (thesaurus lookup)     |
-| Tab        | accept the top completion                         |
-| Backspace  | delete the last character                         |
-| Ctrl+S     | save (prompts for a filename)                     |
-| Ctrl+Q     | quit cleanly                                       |
-
-The terminal is always restored to normal mode on exit.
+Tampilan terminalnya sengaja dibuat polos — tanpa warna, tanpa *ghost text* —
+tapi pengetikannya **live** (setiap tombol langsung diproses, bukan per baris).
 
 ---
 
-## Building and running
+## Cara kerjanya
 
-### macOS / Linux (gcc or clang)
+- Mulai mengetik di dokumen kosong. Semua yang kamu ketik ditambahkan ke buffer
+  dokumen (huruf, kata, kalimat, paragraf).
+- Begitu **kata saat ini** mencapai 2 huruf atau lebih, blok saran muncul di
+  baris **di bawah kursor**: sampai 5 saran kata dari Trie (bernomor) plus
+  **huruf-huruf berikutnya** yang mungkin. Blok ini digambar ulang setiap
+  ketukan, jadi tidak pernah basi, dan kursor tetap di tempatmu mengetik.
+- Tekan **Spasi** atau **Enter** untuk menyelesaikan kata. Kata yang selesai
+  dicari di tesaurus BST; kalau ada sinonimnya, ditampilkan di bawah kursor.
+- Tekan **Tab** untuk menerima saran teratas: kata parsial diganti dengan kata
+  lengkap, ditambah spasi, lalu sinonimnya dicari.
 
-With the provided Makefile:
+Ini notepad **tambah-saja** (append-only): tidak ada navigasi tombol panah atau
+mengedit di tengah teks yang sudah diketik.
+
+### Kontrol
+
+| Tombol         | Aksi                                              |
+| -------------- | ------------------------------------------------- |
+| huruf apa pun  | diketik ke dokumen (autocomplete live)            |
+| Spasi / Enter  | menyelesaikan kata saat ini (cari sinonim)        |
+| Tab            | menerima saran teratas                            |
+| Backspace      | menghapus karakter terakhir                       |
+| Ctrl+S         | simpan (akan menanyakan nama file)                |
+| Ctrl+Q         | keluar dengan rapi                                |
+
+Terminal selalu dikembalikan ke mode normal saat keluar.
+
+---
+
+## Cara compile & menjalankan
+
+### macOS / Linux (gcc atau clang)
+
+Cara paling gampang — satu baris langsung jalan:
 
 ```sh
-make
-./notepad
+gcc *.c -o program && ./program
 ```
 
-Or the raw one-line command (no Makefile needed):
+Atau pakai Makefile yang sudah disediakan:
 
 ```sh
-cc -std=c11 -Wall -Wextra -O2 -o notepad main.c trie.c bst.c platform.c
-./notepad
+make          # build ./program
+./program     # jalankan
 ```
 
-(`cc` is gcc or clang on almost every system; either works.)
+(Bisa juga `make run` untuk build + jalankan sekaligus.)
+
+> Catatan: jalankan dari dalam folder proyek ini supaya `dictionary.txt` dan
+> `thesaurus.txt` ikut terbaca. Kalau `gcc` belum ada, ganti dengan `cc` atau
+> `clang` (`cc *.c -o program`).
 
 ### Windows (MinGW gcc)
 
-Install [MinGW-w64](https://www.mingw-w64.org/) so that `gcc` is on your PATH,
-then from a `cmd` or PowerShell prompt:
+Pasang [MinGW-w64](https://www.mingw-w64.org/) supaya `gcc` ada di PATH, lalu
+dari `cmd` atau PowerShell:
 
 ```sh
-gcc -std=c11 -Wall -Wextra -O2 -o notepad.exe main.c trie.c bst.c platform.c
-notepad.exe
+gcc *.c -o program.exe
+program.exe
 ```
 
-The same source compiles unchanged: `platform.c` selects the Windows Console
-API (`_getch` from `conio.h`, plus `ENABLE_VIRTUAL_TERMINAL_PROCESSING` for the
-ANSI cursor codes) via `#ifdef _WIN32`, and POSIX `termios` everywhere else.
-Run it in a real console window (the classic terminal or Windows Terminal), not
-inside an IDE's output pane.
+Kode sumber yang sama bisa di-compile tanpa diubah: `platform.c` otomatis
+memilih Windows Console API (`_getch` dari `conio.h`, plus
+`ENABLE_VIRTUAL_TERMINAL_PROCESSING` untuk kode kursor ANSI) lewat
+`#ifdef _WIN32`, dan `termios` POSIX di sistem lainnya. Jalankan di jendela
+konsol asli (Command Prompt atau Windows Terminal), bukan di panel output IDE.
 
 ---
 
-## Data files
+## File data
 
-Both files are loaded at startup and are plain text, so they are easy to swap
-for larger ones. Missing or empty files are handled gracefully (the relevant
-feature is just disabled, with a note on screen).
+Kedua file dimuat saat startup dan berupa teks biasa, jadi gampang diganti
+dengan yang lebih besar. File yang hilang atau kosong ditangani dengan aman
+(fitur terkait dimatikan saja, dengan catatan di layar).
 
-- **`dictionary.txt`** — one English word per line (~200 common words seeded).
-  Loaded into the **Trie**. Only lowercase `a`–`z` words are kept.
-- **`thesaurus.txt`** — lines formatted `word: synonym1, synonym2, synonym3`
-  (~40 entries seeded). Loaded into the **BST**.
+- **`dictionary.txt`** — satu kata Inggris per baris (±200 kata umum sudah
+  diisi). Dimuat ke **Trie**. Hanya kata huruf kecil `a`–`z` yang disimpan.
+- **`thesaurus.txt`** — baris berformat `kata: sinonim1, sinonim2, sinonim3`
+  (±40 entri sudah diisi). Dimuat ke **BST**.
 
-To use bigger data, just replace these files (keeping the same names/format) or
-edit the `DICT_PATH` / `THES_PATH` constants at the top of `main.c`.
+Untuk memakai data lebih besar, cukup ganti file ini (nama/format tetap sama)
+atau ubah konstanta `DICT_PATH` / `THES_PATH` di bagian atas `main.c`.
 
 ---
 
-## Source layout
+## Susunan kode
 
-The ADTs are kept strictly separate from the application logic:
+ADT sengaja dipisah ketat dari logika aplikasi:
 
-| File                    | Responsibility                                        |
-| ----------------------- | ----------------------------------------------------- |
-| `trie.h` / `trie.c`     | Trie ADT: insert, has-prefix, collect, next-letters   |
-| `bst.h` / `bst.c`       | BST ADT: insert (word + synonyms), search             |
-| `platform.h` / `platform.c` | OS terminal abstraction (raw mode + key reading)  |
-| `main.c`                | notepad loop, document buffer, rendering              |
+| File                        | Tanggung jawab                                        |
+| --------------------------- | ----------------------------------------------------- |
+| `trie.h` / `trie.c`         | ADT Trie: insert, has-prefix, collect, next-letters   |
+| `bst.h` / `bst.c`           | ADT BST: insert (kata + sinonim), search              |
+| `platform.h` / `platform.c` | Abstraksi terminal OS (mode raw + baca tombol)        |
+| `main.c`                    | loop notepad, buffer dokumen, rendering               |
