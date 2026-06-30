@@ -39,15 +39,19 @@ typedef struct {
 } Doc;
 
 /* The completion list currently drawn on screen. It is the single
- * source of truth for "what the user can accept": Tab takes item 0, and
- * pressing a digit 1..count takes that item. count == 0 means no list
- * is showing, so Tab and digits do nothing special. */
+ * source of truth for "what the user can accept": the arrow keys move
+ * `sel` through the list and Tab accepts items[sel]. count == 0 means no
+ * list is showing, so the arrows and Tab do nothing special. `nexts`
+ * caches the possible next letters so the block can be redrawn (on an
+ * arrow press) without re-querying the Trie. */
 typedef struct {
     char items[MAX_SUGGEST][TRIE_MAX_WORD];
     int  count;
+    int  sel;                          /* highlighted index, 0..count-1 */
+    char nexts[TRIE_ALPHABET + 1];     /* possible next letters         */
 } Suggestions;
 
-static Suggestions g_sugg = { .count = 0 };
+static Suggestions g_sugg = { .count = 0, .sel = 0 };
 
 static void doc_init(Doc *d)
 {
@@ -174,15 +178,44 @@ static void draw_below(const char *block)
     fflush(stdout);                      /* show it now (raw mode)   */
 }
 
-/* Recompute and redraw the autocompletion block for the word the user
- * is currently typing. Clears the area when there is nothing to show. */
+/* Draw the suggestion block from the current g_sugg state, highlighting
+ * the selected item with [brackets]. Clears the area when no list is
+ * active. Called both when the list is rebuilt (a new keystroke) and
+ * when only the highlight moves (an arrow press). */
+static void draw_suggestion_block(void)
+{
+    if (g_sugg.count <= 0) { draw_below(NULL); return; }
+
+    char block[1024];
+    int off = snprintf(block, sizeof block, "  completions:");
+    for (int i = 0; i < g_sugg.count && off < (int)sizeof block - 4; i++) {
+        if (i == g_sugg.sel)             /* the highlighted choice */
+            off += snprintf(block + off, sizeof block - off,
+                            " [%s]", g_sugg.items[i]);
+        else
+            off += snprintf(block + off, sizeof block - off,
+                            "  %s ", g_sugg.items[i]);
+    }
+
+    off += snprintf(block + off, sizeof block - off,
+                    "   (arrows: select, Tab: accept)\r\n  next letters:");
+    for (int i = 0; g_sugg.nexts[i] && off < (int)sizeof block - 2; i++)
+        off += snprintf(block + off, sizeof block - off, " %c", g_sugg.nexts[i]);
+
+    draw_below(block);
+}
+
+/* Recompute the autocompletion list for the word being typed and draw
+ * it, resetting the highlight to the first item. Clears the area when
+ * there is nothing to show. */
 static void render_completions(const Doc *doc, const Trie *trie)
 {
     char word[TRIE_MAX_WORD];
     doc_current_word(doc, word, sizeof word);
 
-    /* Nothing to offer -> remember "no list" so Tab/digits stay inert. */
+    /* Nothing to offer -> remember "no list" so the arrows/Tab stay inert. */
     g_sugg.count = 0;
+    g_sugg.sel   = 0;
 
     /* Only suggest once the user has committed to a word (>= 2 chars). */
     if (strlen(word) < 2) { draw_below(NULL); return; }
@@ -192,25 +225,12 @@ static void render_completions(const Doc *doc, const Trie *trie)
     if (!trie_has_prefix(trie, prefix))  { draw_below(NULL); return; }
 
     /* Collect straight into the on-screen state so what the user sees is
-     * exactly what Tab / the number keys will accept. */
+     * exactly what the arrows/Tab will act on. */
     g_sugg.count = trie_collect(trie, prefix, g_sugg.items, MAX_SUGGEST);
+    trie_next_letters(trie, prefix, g_sugg.nexts);
+    g_sugg.sel   = 0;
 
-    char nexts[TRIE_ALPHABET + 1];
-    int  nnext = trie_next_letters(trie, prefix, nexts);
-
-    /* Build the two-line block. The leading "  " indents it slightly. */
-    char block[1024];
-    int off = snprintf(block, sizeof block, "  completions:");
-    for (int i = 0; i < g_sugg.count && off < (int)sizeof block - 2; i++)
-        off += snprintf(block + off, sizeof block - off,
-                        " %d.%s", i + 1, g_sugg.items[i]);
-
-    off += snprintf(block + off, sizeof block - off,
-                    "  (Tab/1-%d to pick)\r\n  next letters:", g_sugg.count);
-    for (int i = 0; i < nnext && off < (int)sizeof block - 2; i++)
-        off += snprintf(block + off, sizeof block - off, " %c", nexts[i]);
-
-    draw_below(block);
+    draw_suggestion_block();
 }
 
 /* Look up a finished word in the thesaurus and show its synonyms in
@@ -245,7 +265,7 @@ static void print_header(void)
     fputs("\r\n", stdout);
     fputs("==== Smart Notepad ==========================================\r\n", stdout);
     fputs(" Trie -> live autocomplete     BST -> synonym thesaurus\r\n", stdout);
-    fputs(" Tab / 1-5: pick suggestion   Ctrl+S: save   Ctrl+Q: quit\r\n", stdout);
+    fputs(" Arrows: select   Tab: accept   Ctrl+S: save   Esc/Ctrl+Q: quit\r\n", stdout);
     fputs("-------------------------------------------------------------\r\n", stdout);
     fflush(stdout);
 }
@@ -439,6 +459,7 @@ int main(void)
 
         switch (k) {
         case KEY_CTRL_Q:
+        case KEY_ESC:                          /* Esc also quits */
             running = 0;
             break;
 
@@ -447,7 +468,23 @@ int main(void)
             break;
 
         case KEY_TAB:
-            accept_suggestion(&doc, bst, 0);   /* Tab = top suggestion */
+            accept_suggestion(&doc, bst, g_sugg.sel); /* accept highlighted */
+            break;
+
+        case KEY_UP:
+        case KEY_LEFT:                          /* move highlight back */
+            if (g_sugg.count > 0) {
+                g_sugg.sel = (g_sugg.sel - 1 + g_sugg.count) % g_sugg.count;
+                draw_suggestion_block();
+            }
+            break;
+
+        case KEY_DOWN:
+        case KEY_RIGHT:                         /* move highlight forward */
+            if (g_sugg.count > 0) {
+                g_sugg.sel = (g_sugg.sel + 1) % g_sugg.count;
+                draw_suggestion_block();
+            }
             break;
 
         case KEY_BACKSPACE:
@@ -477,13 +514,8 @@ int main(void)
         }
 
         default:
-            /* While a completion list is showing, the digits 1..count
-             * pick that numbered suggestion instead of being typed. */
-            if (g_sugg.count > 0 && k >= '1' && k <= '0' + g_sugg.count) {
-                accept_suggestion(&doc, bst, k - '1');
-                break;
-            }
-            /* Any other printable ASCII character is typed into the doc. */
+            /* Any printable ASCII character is typed into the document
+             * (digits included — selection is done with the arrows now). */
             if (k >= 32 && k < 127) {
                 doc_push(&doc, (char)k);
                 putchar((char)k);

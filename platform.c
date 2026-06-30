@@ -48,19 +48,26 @@ int read_key(void)
     int c = _getch();
 
     /* Windows reports special keys (arrows, function keys, etc.) as a
-     * two-byte sequence beginning with 0x00 or 0xE0. Swallow the
-     * second byte and report the key as unknown — we do not navigate. */
+     * two-byte sequence beginning with 0x00 or 0xE0. The second byte
+     * identifies the key; we map the arrows and drop the rest. */
     if (c == 0x00 || c == 0xE0) {
-        _getch();
-        return KEY_UNKNOWN;
+        int c2 = _getch();
+        switch (c2) {
+            case 72: return KEY_UP;
+            case 80: return KEY_DOWN;
+            case 75: return KEY_LEFT;
+            case 77: return KEY_RIGHT;
+            default: return KEY_UNKNOWN;
+        }
     }
 
     switch (c) {
         case '\r': case '\n': return KEY_ENTER;
         case '\t':            return KEY_TAB;
-        case 8:   case 127:   return KEY_BACKSPACE;   /* both forms */
-        case 19:              return KEY_CTRL_S;       /* Ctrl+S */
-        case 17:              return KEY_CTRL_Q;       /* Ctrl+Q */
+        case 27:              return KEY_ESC;          /* Esc — quit */
+        case 8:   case 127:   return KEY_BACKSPACE;    /* both forms */
+        case 19:              return KEY_CTRL_S;        /* Ctrl+S */
+        case 17:              return KEY_CTRL_Q;        /* Ctrl+Q */
         default:              return c;
     }
 }
@@ -69,9 +76,24 @@ int read_key(void)
 /* ------------------------------ POSIX ------------------------------ */
 #include <termios.h>
 #include <unistd.h>
+#include <sys/select.h>
 
 static struct termios g_orig;
 static int g_raw = 0;
+
+/* Return non-zero if at least one byte is waiting on stdin within `ms`
+ * milliseconds. Used to tell a lone Esc (quit) apart from the start of
+ * an escape sequence such as an arrow key (Esc [ A). */
+static int input_pending(int ms)
+{
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec  = ms / 1000;
+    tv.tv_usec = (ms % 1000) * 1000;
+    return select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) > 0;
+}
 
 void enable_raw_mode(void)
 {
@@ -113,17 +135,27 @@ int read_key(void)
         case 17:              return KEY_CTRL_Q;       /* Ctrl+Q */
     }
 
-    /* ESC introduces an escape sequence (e.g. an arrow key). We do not
-     * support navigation, so consume the "[X" tail and drop it rather
-     * than letting stray '[' and letters land in the document. */
+    /* ESC is either a lone Esc keypress (quit) or the start of an escape
+     * sequence such as an arrow key ("Esc [ A"). If nothing follows
+     * almost immediately, treat it as a bare Esc. */
     if (c == 27) {
-        unsigned char seq;
-        if (read(STDIN_FILENO, &seq, 1) == 1 && seq == '[') {
-            /* discard the final byte; result intentionally unused */
-            ssize_t ignored = read(STDIN_FILENO, &seq, 1);
-            (void)ignored;
+        if (!input_pending(30))
+            return KEY_ESC;                 /* lone Esc -> quit */
+
+        unsigned char seq0;
+        if (read(STDIN_FILENO, &seq0, 1) != 1) return KEY_ESC;
+        if (seq0 == '[') {
+            unsigned char seq1;
+            if (read(STDIN_FILENO, &seq1, 1) == 1) {
+                switch (seq1) {
+                    case 'A': return KEY_UP;
+                    case 'B': return KEY_DOWN;
+                    case 'C': return KEY_RIGHT;
+                    case 'D': return KEY_LEFT;
+                }
+            }
         }
-        return KEY_UNKNOWN;
+        return KEY_UNKNOWN;                  /* other escape: ignore */
     }
 
     return c;

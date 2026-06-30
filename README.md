@@ -20,7 +20,7 @@ tapi pengetikannya **live** (setiap tombol langsung diproses, bukan per baris).
 - Mulai mengetik di dokumen kosong. Semua yang kamu ketik ditambahkan ke buffer
   dokumen (huruf, kata, kalimat, paragraf).
 - Begitu **kata saat ini** mencapai 2 huruf atau lebih, blok saran muncul di
-  baris **di bawah kursor**: sampai 5 saran kata dari Trie (bernomor) plus
+  baris **di bawah kursor**: sampai 5 saran kata dari Trie plus
   **huruf-huruf berikutnya** yang mungkin. Blok ini digambar ulang setiap
   ketukan, jadi tidak pernah basi, dan kursor tetap di tempatmu mengetik.
 - Tekan **Spasi** atau **Enter** untuk menyelesaikan kata. Kata yang selesai
@@ -33,23 +33,26 @@ mengedit di tengah teks yang sudah diketik.
 
 ### Kontrol
 
-| Tombol         | Aksi                                              |
-| -------------- | ------------------------------------------------- |
-| huruf apa pun  | diketik ke dokumen (autocomplete live)            |
-| Spasi / Enter  | menyelesaikan kata saat ini (cari sinonim)        |
-| Tab            | menerima saran **nomor 1** (teratas)              |
-| angka `1`–`5`  | menerima saran sesuai nomornya di daftar          |
-| Backspace      | menghapus karakter terakhir                       |
-| Ctrl+S         | simpan (akan menanyakan nama file)                |
-| Ctrl+Q         | keluar dengan rapi                                |
+| Tombol             | Aksi                                              |
+| ------------------ | ------------------------------------------------- |
+| huruf apa pun      | diketik ke dokumen (autocomplete live)            |
+| Spasi / Enter      | menyelesaikan kata saat ini (cari sinonim)        |
+| panah ← → / ↑ ↓    | memindahkan pilihan di daftar saran               |
+| Tab                | menerima saran yang sedang **disorot**            |
+| Backspace          | menghapus karakter terakhir                       |
+| Ctrl+S             | simpan (akan menanyakan nama file)                |
+| Esc / Ctrl+Q       | keluar dengan rapi                                |
 
-Daftar saran tampil bernomor, mis. `1.small 2.smart`. Tekan `Tab` untuk ambil
-yang teratas, atau tekan **angkanya langsung** (`2` untuk `smart`, dst).
+Saran yang sedang dipilih disorot dengan tanda kurung siku, mis.
+`[small]  smart`. Gerakkan dengan tombol panah, lalu tekan `Tab` untuk
+menerimanya. Karena pemilihan pakai panah, mengetik angka tidak lagi
+terganggu sama sekali.
 
-> Catatan kecil: angka `1`–`5` hanya "membajak" tombolmu **selama daftar saran
-> sedang tampil**. Kalau kamu memang ingin mengetik angka tepat setelah sebuah
-> kata, selesaikan dulu katanya dengan spasi (daftar saran hilang), baru ketik
-> angkanya.
+> **Kalau Ctrl+Q tidak bisa keluar:** beberapa terminal (mis. Git Bash /
+> mintty) menelan `Ctrl+S` dan `Ctrl+Q` sebagai kontrol aliran (XON/XOFF),
+> jadi tidak sampai ke program. Pakai **Esc** untuk keluar — selalu berhasil.
+> Untuk fitur `Ctrl+S` (simpan), jalankan di **Command Prompt** atau
+> **Windows Terminal** (bukan Git Bash) supaya tombolnya tidak ditelan.
 
 Terminal selalu dikembalikan ke mode normal saat keluar.
 

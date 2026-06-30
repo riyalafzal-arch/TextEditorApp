@@ -12,12 +12,17 @@
  * Their values sit well above the 0-255 byte range so they can never
  * be confused with an ordinary typed character. */
 enum {
-    KEY_ENTER = 1000,   /* Return / Enter            */
-    KEY_BACKSPACE,      /* Backspace (8 or 127)      */
-    KEY_TAB,            /* Tab — accept suggestion   */
-    KEY_CTRL_S,         /* Ctrl+S — save             */
-    KEY_CTRL_Q,         /* Ctrl+Q — quit             */
-    KEY_UNKNOWN         /* anything we choose to drop */
+    KEY_ENTER = 1000,   /* Return / Enter             */
+    KEY_BACKSPACE,      /* Backspace (8 or 127)       */
+    KEY_TAB,            /* Tab — accept suggestion    */
+    KEY_CTRL_S,         /* Ctrl+S — save              */
+    KEY_CTRL_Q,         /* Ctrl+Q — quit              */
+    KEY_ESC,            /* Esc — quit (alt. to Ctrl+Q) */
+    KEY_UP,             /* Up arrow — select prev     */
+    KEY_DOWN,           /* Down arrow — select next   */
+    KEY_LEFT,           /* Left arrow — select prev   */
+    KEY_RIGHT,          /* Right arrow — select next  */
+    KEY_UNKNOWN         /* anything we choose to drop  */
 };
 
 /* Put the terminal into raw, character-at-a-time mode:
