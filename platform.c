@@ -1,8 +1,9 @@
-/* platform.c — OS terminal abstraction implementation.
+/* platform.c — Implementasi abstraksi terminal OS.
  *
- * Two completely separate implementations selected at compile time
- * with #ifdef _WIN32. Both expose the identical interface declared in
- * platform.h so main.c stays OS-agnostic.
+ * Dua implementasi yang benar-benar terpisah, dipilih saat kompilasi
+ * dengan #ifdef _WIN32. Keduanya menyediakan antarmuka yang sama persis
+ * seperti yang dideklarasikan di platform.h, sehingga main.c tetap
+ * netral terhadap OS.
  */
 #include "platform.h"
 
@@ -23,9 +24,9 @@ static int    g_have_mode = 0;
 
 void enable_raw_mode(void)
 {
-    /* Input is read with _getch(), which is already unbuffered and
-     * non-echoing, so we only need to teach the OUTPUT console how to
-     * interpret the ANSI escape codes we emit for cursor control. */
+    /* Input dibaca pakai _getch(), yang sudah unbuffered dan tanpa echo,
+     * jadi kita cuma perlu mengajari konsol OUTPUT supaya bisa menafsirkan
+     * kode escape ANSI yang kita kirim untuk mengatur kursor. */
     g_hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (g_hOut != INVALID_HANDLE_VALUE &&
         GetConsoleMode(g_hOut, &g_orig_out_mode)) {
@@ -47,9 +48,9 @@ int read_key(void)
 {
     int c = _getch();
 
-    /* Windows reports special keys (arrows, function keys, etc.) as a
-     * two-byte sequence beginning with 0x00 or 0xE0. The second byte
-     * identifies the key; we map the arrows and drop the rest. */
+    /* Windows melaporkan tombol khusus (panah, tombol fungsi, dll.) sebagai
+     * urutan dua byte yang diawali 0x00 atau 0xE0. Byte kedua menentukan
+     * tombolnya; kita petakan tombol panah dan abaikan sisanya. */
     if (c == 0x00 || c == 0xE0) {
         int c2 = _getch();
         switch (c2) {
@@ -64,8 +65,8 @@ int read_key(void)
     switch (c) {
         case '\r': case '\n': return KEY_ENTER;
         case '\t':            return KEY_TAB;
-        case 27:              return KEY_ESC;          /* Esc — quit */
-        case 8:   case 127:   return KEY_BACKSPACE;    /* both forms */
+        case 27:              return KEY_ESC;          /* Esc — keluar */
+        case 8:   case 127:   return KEY_BACKSPACE;    /* dua-duanya bisa */
         case 19:              return KEY_CTRL_S;        /* Ctrl+S */
         case 17:              return KEY_CTRL_Q;        /* Ctrl+Q */
         default:              return c;
@@ -81,9 +82,9 @@ int read_key(void)
 static struct termios g_orig;
 static int g_raw = 0;
 
-/* Return non-zero if at least one byte is waiting on stdin within `ms`
- * milliseconds. Used to tell a lone Esc (quit) apart from the start of
- * an escape sequence such as an arrow key (Esc [ A). */
+/* Mengembalikan nilai bukan-nol bila ada minimal satu byte menunggu di
+ * stdin dalam `ms` milidetik. Dipakai untuk membedakan Esc tunggal
+ * (keluar) dari awal sebuah urutan escape seperti tombol panah (Esc [ A). */
 static int input_pending(int ms)
 {
     fd_set fds;
@@ -100,14 +101,15 @@ void enable_raw_mode(void)
     if (tcgetattr(STDIN_FILENO, &g_orig) != 0) return;
 
     struct termios raw = g_orig;
-    /* Local flags: drop ICANON (read per-key, not per-line) and ECHO
-     * (we draw characters ourselves so suggestions can be redrawn). */
+    /* Flag lokal: matikan ICANON (baca per-tombol, bukan per-baris) dan
+     * ECHO (kita menggambar karakter sendiri supaya saran bisa digambar
+     * ulang). */
     raw.c_lflag &= ~(ICANON | ECHO);
-    /* Input flags: drop IXON so Ctrl+S (19) and Ctrl+Q (17) reach us
-     * instead of being eaten as XOFF/XON flow control. */
+    /* Flag input: matikan IXON supaya Ctrl+S (19) dan Ctrl+Q (17) sampai
+     * ke kita, bukan ditelan sebagai kontrol aliran XOFF/XON. */
     raw.c_iflag &= ~(IXON);
-    raw.c_cc[VMIN]  = 1;   /* block until at least one byte           */
-    raw.c_cc[VTIME] = 0;   /* ...with no inter-byte timeout           */
+    raw.c_cc[VMIN]  = 1;   /* blokir sampai ada minimal satu byte        */
+    raw.c_cc[VTIME] = 0;   /* ...tanpa batas waktu antar-byte            */
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == 0)
         g_raw = 1;
@@ -130,17 +132,17 @@ int read_key(void)
     switch (c) {
         case '\r': case '\n': return KEY_ENTER;
         case '\t':            return KEY_TAB;
-        case 8:   case 127:   return KEY_BACKSPACE;   /* both forms */
+        case 8:   case 127:   return KEY_BACKSPACE;   /* dua-duanya bisa */
         case 19:              return KEY_CTRL_S;       /* Ctrl+S */
         case 17:              return KEY_CTRL_Q;       /* Ctrl+Q */
     }
 
-    /* ESC is either a lone Esc keypress (quit) or the start of an escape
-     * sequence such as an arrow key ("Esc [ A"). If nothing follows
-     * almost immediately, treat it as a bare Esc. */
+    /* ESC bisa berupa penekanan Esc tunggal (keluar) atau awal sebuah
+     * urutan escape seperti tombol panah ("Esc [ A"). Kalau hampir tidak
+     * ada byte yang menyusul, anggap itu Esc tunggal. */
     if (c == 27) {
         if (!input_pending(30))
-            return KEY_ESC;                 /* lone Esc -> quit */
+            return KEY_ESC;                 /* Esc tunggal -> keluar */
 
         unsigned char seq0;
         if (read(STDIN_FILENO, &seq0, 1) != 1) return KEY_ESC;
@@ -155,7 +157,7 @@ int read_key(void)
                 }
             }
         }
-        return KEY_UNKNOWN;                  /* other escape: ignore */
+        return KEY_UNKNOWN;                  /* escape lain: abaikan */
     }
 
     return c;

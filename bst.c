@@ -1,10 +1,10 @@
-/* bst.c — Binary Search Tree ADT implementation (thesaurus).
+/* bst.c — Implementasi ADT Binary Search Tree (tesaurus).
  *
- * A BST keeps keys ordered: for every node, all words in the left
- * subtree sort before it and all words in the right subtree sort
- * after it (by strcmp). That ordering turns a word lookup into a
- * simple "go left or go right" walk — ideal for a thesaurus keyed on
- * the word itself.
+ * BST menjaga key tetap terurut: untuk setiap node, semua kata di
+ * subpohon kiri terurut sebelum node itu dan semua kata di subpohon
+ * kanan terurut sesudahnya (menurut strcmp). Urutan inilah yang membuat
+ * pencarian kata menjadi sekadar penelusuran "ke kiri atau ke kanan" —
+ * pas untuk tesaurus yang berkunci pada kata itu sendiri.
  */
 #include "bst.h"
 
@@ -19,7 +19,7 @@ BST *bst_create(void)
     return t;
 }
 
-/* Recursively free a node and both subtrees. */
+/* Membebaskan sebuah node beserta kedua subpohonnya secara rekursif. */
 static void node_free(BSTNode *n)
 {
     if (!n) return;
@@ -35,21 +35,21 @@ void bst_free(BST *t)
     free(t);
 }
 
-/* Allocate and populate a leaf node holding `word` + `syns`. */
+/* Mengalokasikan dan mengisi sebuah node daun berisi `word` + `syns`. */
 static BSTNode *node_create(const char *word, const SynList *syns)
 {
     BSTNode *n = (BSTNode *)malloc(sizeof(BSTNode));
     if (!n) return NULL;
     strncpy(n->word, word, BST_MAX_WORD - 1);
     n->word[BST_MAX_WORD - 1] = '\0';
-    n->syns = *syns;                 /* copy the whole fixed-size list */
+    n->syns = *syns;                 /* salin seluruh daftar berukuran tetap */
     n->left = n->right = NULL;
     return n;
 }
 
-/* ADT operation: INSERT.
- * Recursive descent: smaller keys go left, larger go right, equal keys
- * have their synonym list overwritten (a re-definition). */
+/* Operasi ADT: INSERT (menyisipkan).
+ * Penurunan rekursif: key lebih kecil ke kiri, lebih besar ke kanan,
+ * key yang sama daftar sinonimnya ditimpa (didefinisikan ulang). */
 static BSTNode *insert_rec(BSTNode *node, const char *word,
                            const SynList *syns)
 {
@@ -62,7 +62,7 @@ static BSTNode *insert_rec(BSTNode *node, const char *word,
     else if (cmp > 0)
         node->right = insert_rec(node->right, word, syns);
     else
-        node->syns = *syns;          /* same word: replace synonyms */
+        node->syns = *syns;          /* kata sama: ganti sinonimnya */
 
     return node;
 }
@@ -73,9 +73,9 @@ void bst_insert(BST *t, const char *word, const SynList *syns)
     t->root = insert_rec(t->root, word, syns);
 }
 
-/* ADT operation: SEARCH.
- * Iterative walk: compare, then step left or right until found or the
- * subtree runs out. */
+/* Operasi ADT: SEARCH (mencari).
+ * Penelusuran iteratif: bandingkan, lalu melangkah ke kiri atau ke kanan
+ * sampai ketemu atau subpohonnya habis. */
 const SynList *bst_search(const BST *t, const char *word)
 {
     if (!t || !word) return NULL;

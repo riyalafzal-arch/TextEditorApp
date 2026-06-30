@@ -1,42 +1,43 @@
-/* platform.h — OS terminal abstraction.
+/* platform.h — Abstraksi terminal lintas-OS.
  *
- * The rest of the program never touches termios, conio, or the Windows
- * Console API directly; it only calls these three functions and reads
- * the named key constants below. All the #ifdef _WIN32 vs POSIX
- * branching lives in platform.c.
+ * Bagian lain program tidak pernah menyentuh termios, conio, atau Windows
+ * Console API secara langsung; mereka hanya memanggil tiga fungsi ini dan
+ * membaca konstanta tombol bernama di bawah. Semua percabangan
+ * #ifdef _WIN32 vs POSIX berada di platform.c.
  */
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
-/* Named constants returned by read_key() for non-printable keys.
- * Their values sit well above the 0-255 byte range so they can never
- * be confused with an ordinary typed character. */
+/* Konstanta bernama yang dikembalikan read_key() untuk tombol non-cetak.
+ * Nilainya berada jauh di atas rentang byte 0-255 supaya tidak pernah
+ * tertukar dengan karakter biasa yang diketik. */
 enum {
-    KEY_ENTER = 1000,   /* Return / Enter             */
-    KEY_BACKSPACE,      /* Backspace (8 or 127)       */
-    KEY_TAB,            /* Tab — accept suggestion    */
-    KEY_CTRL_S,         /* Ctrl+S — save              */
-    KEY_CTRL_Q,         /* Ctrl+Q — quit              */
-    KEY_ESC,            /* Esc — quit (alt. to Ctrl+Q) */
-    KEY_UP,             /* Up arrow — select prev     */
-    KEY_DOWN,           /* Down arrow — select next   */
-    KEY_LEFT,           /* Left arrow — select prev   */
-    KEY_RIGHT,          /* Right arrow — select next  */
-    KEY_UNKNOWN         /* anything we choose to drop  */
+    KEY_ENTER = 1000,   /* Return / Enter              */
+    KEY_BACKSPACE,      /* Backspace (8 atau 127)      */
+    KEY_TAB,            /* Tab — terima saran          */
+    KEY_CTRL_S,         /* Ctrl+S — simpan             */
+    KEY_CTRL_Q,         /* Ctrl+Q — keluar             */
+    KEY_ESC,            /* Esc — keluar (alt. Ctrl+Q)  */
+    KEY_UP,             /* Panah atas — pilih sebelum  */
+    KEY_DOWN,           /* Panah bawah — pilih sesudah */
+    KEY_LEFT,           /* Panah kiri — pilih sebelum  */
+    KEY_RIGHT,          /* Panah kanan — pilih sesudah */
+    KEY_UNKNOWN         /* apa pun yang ingin diabaikan */
 };
 
-/* Put the terminal into raw, character-at-a-time mode:
- *  - POSIX: termios with canonical mode + echo disabled.
- *  - Windows: enable ANSI escape handling on the console.
- * Always pair with disable_raw_mode() before exit. */
+/* Menaruh terminal ke mode raw, satu-karakter-sekali-baca:
+ *  - POSIX: termios dengan mode kanonik + echo dimatikan.
+ *  - Windows: mengaktifkan penanganan escape ANSI pada konsol.
+ * Selalu pasangkan dengan disable_raw_mode() sebelum keluar. */
 void enable_raw_mode(void);
 
-/* Restore the terminal to the state it had before enable_raw_mode().
- * Safe to call more than once. */
+/* Mengembalikan terminal ke kondisi sebelum enable_raw_mode().
+ * Aman dipanggil lebih dari sekali. */
 void disable_raw_mode(void);
 
-/* Block for one keypress and return it: a printable character as its
- * own value, or one of the KEY_* constants above for special keys. */
+/* Memblokir untuk satu penekanan tombol lalu mengembalikannya: karakter
+ * cetak sebagai nilainya sendiri, atau salah satu konstanta KEY_* di atas
+ * untuk tombol khusus. */
 int  read_key(void);
 
 #endif /* PLATFORM_H */

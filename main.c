@@ -1,15 +1,14 @@
 /* main.c — Smart Notepad.
  *
- * A tiny live-typing notepad that demonstrates two tree ADTs:
+ * Notepad mini dengan pengetikan live yang mendemonstrasikan dua ADT pohon:
  *
- *   - a Trie (trie.h/.c) drives live word autocompletion, and
- *   - a Binary Search Tree (bst.h/.c) drives a synonym thesaurus.
+ *   - Trie (trie.h/.c) menggerakkan autocomplete kata secara live, dan
+ *   - Binary Search Tree (bst.h/.c) menggerakkan tesaurus sinonim.
  *
- * This file owns only the *application*: the document buffer, the
- * input loop, and the terminal rendering. All OS-specific terminal
- * work lives behind platform.h, and the data structures know nothing
- * about the screen. That separation is deliberate — it is what the
- * data-structures course is about.
+ * File ini hanya memegang *aplikasinya*: buffer dokumen, loop input, dan
+ * rendering terminal. Semua urusan terminal yang khusus-OS berada di balik
+ * platform.h, dan struktur datanya sama sekali tidak tahu soal layar.
+ * Pemisahan ini disengaja — inilah inti dari mata kuliah struktur data.
  */
 #include "trie.h"
 #include "bst.h"
@@ -19,18 +18,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ---- Tunables ----------------------------------------------------- */
-#define MAX_SUGGEST     5            /* completions shown at once       */
+/* ---- Nilai yang bisa disetel ------------------------------------- */
+#define MAX_SUGGEST     5            /* jumlah saran yang tampil sekaligus */
 #define DICT_PATH       "dictionary.txt"
 #define THES_PATH       "thesaurus.txt"
 
-/* ---- ANSI escape helpers (enabled on Windows via platform.c) ------ */
-#define ESC_SAVE_CURSOR     "\033" "7"   /* DECSC: save cursor position */
-#define ESC_RESTORE_CURSOR  "\033" "8"   /* DECRC: restore it           */
-#define ESC_CLEAR_TO_END    "\033[0J"    /* erase cursor -> end of screen */
+/* ---- Bantuan escape ANSI (diaktifkan di Windows via platform.c) --- */
+#define ESC_SAVE_CURSOR     "\033" "7"   /* DECSC: simpan posisi kursor   */
+#define ESC_RESTORE_CURSOR  "\033" "8"   /* DECRC: kembalikan kursor      */
+#define ESC_CLEAR_TO_END    "\033[0J"    /* hapus dari kursor -> akhir layar */
 
 /* =================================================================== */
-/*  Document buffer — a simple growable byte array (append-only).      */
+/*  Buffer dokumen — array byte sederhana yang bisa tumbuh (append).   */
 /* =================================================================== */
 typedef struct {
     char  *data;
@@ -38,17 +37,18 @@ typedef struct {
     size_t cap;
 } Doc;
 
-/* The completion list currently drawn on screen. It is the single
- * source of truth for "what the user can accept": the arrow keys move
- * `sel` through the list and Tab accepts items[sel]. count == 0 means no
- * list is showing, so the arrows and Tab do nothing special. `nexts`
- * caches the possible next letters so the block can be redrawn (on an
- * arrow press) without re-querying the Trie. */
+/* Daftar saran yang sedang tergambar di layar. Inilah satu-satunya sumber
+ * kebenaran untuk "apa yang bisa diterima pengguna": tombol panah
+ * menggeser `sel` di sepanjang daftar dan Tab menerima items[sel].
+ * count == 0 berarti tidak ada daftar yang tampil, jadi panah dan Tab
+ * tidak melakukan apa-apa. `nexts` menyimpan huruf-huruf berikutnya yang
+ * mungkin, supaya blok bisa digambar ulang (saat panah ditekan) tanpa
+ * perlu bertanya lagi ke Trie. */
 typedef struct {
     char items[MAX_SUGGEST][TRIE_MAX_WORD];
     int  count;
-    int  sel;                          /* highlighted index, 0..count-1 */
-    char nexts[TRIE_ALPHABET + 1];     /* possible next letters         */
+    int  sel;                          /* indeks yang disorot, 0..count-1 */
+    char nexts[TRIE_ALPHABET + 1];     /* huruf berikutnya yang mungkin   */
 } Suggestions;
 
 static Suggestions g_sugg = { .count = 0, .sel = 0 };
@@ -68,13 +68,13 @@ static void doc_free(Doc *d)
     d->len = d->cap = 0;
 }
 
-/* Append one byte, growing the buffer if needed. */
+/* Menambahkan satu byte, membesarkan buffer kalau perlu. */
 static void doc_push(Doc *d, char c)
 {
     if (d->len + 1 >= d->cap) {
         size_t ncap = d->cap * 2;
         char *n = (char *)realloc(d->data, ncap);
-        if (!n) return;            /* out of memory: silently drop char */
+        if (!n) return;            /* kehabisan memori: karakter diabaikan */
         d->data = n;
         d->cap  = ncap;
     }
@@ -82,7 +82,7 @@ static void doc_push(Doc *d, char c)
     d->data[d->len]   = '\0';
 }
 
-/* Remove and return the last byte (0 if the buffer is empty). */
+/* Menghapus dan mengembalikan byte terakhir (0 kalau buffer kosong). */
 static char doc_pop(Doc *d)
 {
     if (d->len == 0) return 0;
@@ -91,9 +91,9 @@ static char doc_pop(Doc *d)
     return c;
 }
 
-/* Copy the "current word" — the run of non-whitespace characters at
- * the very end of the document — into `out`. Computed straight from
- * the buffer so it stays correct even after backspacing across spaces. */
+/* Menyalin "kata saat ini" — deretan karakter bukan-spasi di paling ujung
+ * dokumen — ke `out`. Dihitung langsung dari buffer supaya tetap benar
+ * bahkan setelah backspace melewati spasi. */
 static void doc_current_word(const Doc *d, char *out, size_t cap)
 {
     size_t i = d->len;
@@ -108,8 +108,8 @@ static void doc_current_word(const Doc *d, char *out, size_t cap)
     out[n] = '\0';
 }
 
-/* Length of the document's last line, in characters (used to place the
- * cursor when a newline is backspaced away). */
+/* Panjang baris terakhir dokumen, dalam karakter (dipakai untuk menaruh
+ * kursor saat sebuah newline dihapus dengan backspace). */
 static size_t doc_last_line_len(const Doc *d)
 {
     size_t i = d->len;
@@ -118,11 +118,12 @@ static size_t doc_last_line_len(const Doc *d)
 }
 
 /* =================================================================== */
-/*  Small string helpers.                                              */
+/*  Bantuan string kecil.                                              */
 /* =================================================================== */
 
-/* Lowercase `in` into `out`, returning true only if every character is
- * a letter (i.e. the word is pure a-z and so query-able in the Trie). */
+/* Mengubah `in` jadi huruf kecil ke `out`, mengembalikan true hanya jika
+ * setiap karakter adalah huruf (artinya kata murni a-z sehingga bisa
+ * ditanyakan ke Trie). */
 static bool to_lower_alpha(const char *in, char *out)
 {
     int i = 0;
@@ -136,15 +137,15 @@ static bool to_lower_alpha(const char *in, char *out)
     return i > 0;
 }
 
-/* Lowercase letters in place; leave other bytes untouched. Used to
- * normalise a finished word before a thesaurus lookup. */
+/* Mengubah huruf jadi huruf kecil di tempat; byte lain dibiarkan. Dipakai
+ * untuk menormalkan kata yang sudah selesai sebelum pencarian tesaurus. */
 static void lower_in_place(char *s)
 {
     for (; *s; s++)
         if (*s >= 'A' && *s <= 'Z') *s = (char)(*s - 'A' + 'a');
 }
 
-/* Strip leading and trailing ASCII whitespace from `s` in place. */
+/* Membuang spasi ASCII di awal dan akhir `s` di tempat. */
 static void trim(char *s)
 {
     char *start = s;
@@ -161,27 +162,27 @@ static void trim(char *s)
 /*  Rendering.                                                         */
 /* =================================================================== */
 
-/* Draw `block` in the suggestion area directly below the cursor, then
- * return the cursor to where the user is typing. Passing NULL just
- * clears the area. The sequence is always:
- *   save cursor -> move below -> erase to end of screen -> print ->
- *   restore cursor -> flush
- * so stale suggestions can never linger between keystrokes. */
+/* Menggambar `block` di area saran tepat di bawah kursor, lalu
+ * mengembalikan kursor ke tempat pengguna mengetik. Memberi NULL hanya
+ * membersihkan area itu. Urutannya selalu:
+ *   simpan kursor -> turun ke bawah -> hapus sampai akhir layar -> cetak ->
+ *   kembalikan kursor -> flush
+ * sehingga saran lama tidak pernah tertinggal di antara ketukan. */
 static void draw_below(const char *block)
 {
-    fputs(ESC_SAVE_CURSOR,    stdout);   /* remember typing position */
-    fputs("\r\n",             stdout);   /* drop to the line below   */
-    fputs(ESC_CLEAR_TO_END,   stdout);   /* wipe everything below    */
+    fputs(ESC_SAVE_CURSOR,    stdout);   /* ingat posisi mengetik     */
+    fputs("\r\n",             stdout);   /* turun ke baris di bawah   */
+    fputs(ESC_CLEAR_TO_END,   stdout);   /* bersihkan semua di bawah  */
     if (block && *block)
-        fputs(block, stdout);            /* may contain \r\n lines   */
-    fputs(ESC_RESTORE_CURSOR, stdout);   /* back to the cursor       */
-    fflush(stdout);                      /* show it now (raw mode)   */
+        fputs(block, stdout);            /* boleh berisi baris \r\n   */
+    fputs(ESC_RESTORE_CURSOR, stdout);   /* kembali ke kursor         */
+    fflush(stdout);                      /* tampilkan sekarang (raw)  */
 }
 
-/* Draw the suggestion block from the current g_sugg state, highlighting
- * the selected item with [brackets]. Clears the area when no list is
- * active. Called both when the list is rebuilt (a new keystroke) and
- * when only the highlight moves (an arrow press). */
+/* Menggambar blok saran dari keadaan g_sugg saat ini, menyorot item yang
+ * terpilih dengan [kurung siku]. Membersihkan area kalau tidak ada daftar
+ * yang aktif. Dipanggil baik saat daftar dibangun ulang (ketukan baru)
+ * maupun saat hanya sorotannya yang bergeser (penekanan panah). */
 static void draw_suggestion_block(void)
 {
     if (g_sugg.count <= 0) { draw_below(NULL); return; }
@@ -189,7 +190,7 @@ static void draw_suggestion_block(void)
     char block[1024];
     int off = snprintf(block, sizeof block, "  completions:");
     for (int i = 0; i < g_sugg.count && off < (int)sizeof block - 4; i++) {
-        if (i == g_sugg.sel)             /* the highlighted choice */
+        if (i == g_sugg.sel)             /* pilihan yang sedang disorot */
             off += snprintf(block + off, sizeof block - off,
                             " [%s]", g_sugg.items[i]);
         else
@@ -205,27 +206,28 @@ static void draw_suggestion_block(void)
     draw_below(block);
 }
 
-/* Recompute the autocompletion list for the word being typed and draw
- * it, resetting the highlight to the first item. Clears the area when
- * there is nothing to show. */
+/* Menghitung ulang daftar autocomplete untuk kata yang sedang diketik lalu
+ * menggambarnya, dengan menyetel sorotan kembali ke item pertama.
+ * Membersihkan area kalau tidak ada yang bisa ditampilkan. */
 static void render_completions(const Doc *doc, const Trie *trie)
 {
     char word[TRIE_MAX_WORD];
     doc_current_word(doc, word, sizeof word);
 
-    /* Nothing to offer -> remember "no list" so the arrows/Tab stay inert. */
+    /* Tidak ada yang ditawarkan -> tandai "tak ada daftar" supaya
+     * panah/Tab tidak berbuat apa-apa. */
     g_sugg.count = 0;
     g_sugg.sel   = 0;
 
-    /* Only suggest once the user has committed to a word (>= 2 chars). */
+    /* Baru menyarankan setelah pengguna mantap pada sebuah kata (>= 2 huruf). */
     if (strlen(word) < 2) { draw_below(NULL); return; }
 
     char prefix[TRIE_MAX_WORD];
     if (!to_lower_alpha(word, prefix))   { draw_below(NULL); return; }
     if (!trie_has_prefix(trie, prefix))  { draw_below(NULL); return; }
 
-    /* Collect straight into the on-screen state so what the user sees is
-     * exactly what the arrows/Tab will act on. */
+    /* Kumpulkan langsung ke keadaan yang tampil di layar, sehingga yang
+     * dilihat pengguna persis yang akan ditindaklanjuti panah/Tab. */
     g_sugg.count = trie_collect(trie, prefix, g_sugg.items, MAX_SUGGEST);
     trie_next_letters(trie, prefix, g_sugg.nexts);
     g_sugg.sel   = 0;
@@ -233,11 +235,11 @@ static void render_completions(const Doc *doc, const Trie *trie)
     draw_suggestion_block();
 }
 
-/* Look up a finished word in the thesaurus and show its synonyms in
- * the suggestion area, or clear the area if there are none. */
+/* Mencari kata yang sudah selesai di tesaurus dan menampilkan sinonimnya
+ * di area saran, atau membersihkan area itu kalau tidak ada. */
 static void render_synonyms(const char *finished_word, const BST *bst)
 {
-    /* The word is finished: there is no completion list to pick from. */
+    /* Kata sudah selesai: tidak ada daftar saran yang bisa dipilih. */
     g_sugg.count = 0;
 
     if (!finished_word[0]) { draw_below(NULL); return; }
@@ -259,7 +261,7 @@ static void render_synonyms(const char *finished_word, const BST *bst)
     draw_below(block);
 }
 
-/* The one-time banner printed above the typing area. */
+/* Banner sekali-tampil yang dicetak di atas area mengetik. */
 static void print_header(void)
 {
     fputs("\r\n", stdout);
@@ -271,7 +273,7 @@ static void print_header(void)
 }
 
 /* =================================================================== */
-/*  Data loading (both fail gracefully on a missing/empty file).       */
+/*  Pemuatan data (keduanya gagal dengan anggun bila file hilang/kosong). */
 /* =================================================================== */
 
 static int load_dictionary(Trie *trie, const char *path)
@@ -284,7 +286,7 @@ static int load_dictionary(Trie *trie, const char *path)
     while (fgets(line, sizeof line, f)) {
         trim(line);
         if (line[0] == '\0') continue;
-        trie_insert(trie, line);     /* non a-z words are rejected inside */
+        trie_insert(trie, line);     /* kata bukan a-z ditolak di dalam */
         count++;
     }
     fclose(f);
@@ -299,7 +301,7 @@ static int load_thesaurus(BST *bst, const char *path)
     char line[512];
     int count = 0;
     while (fgets(line, sizeof line, f)) {
-        /* Each line is  "word: syn1, syn2, syn3". */
+        /* Tiap baris berformat  "kata: sin1, sin2, sin3". */
         char *colon = strchr(line, ':');
         if (!colon) continue;
         *colon = '\0';
@@ -334,14 +336,14 @@ static int load_thesaurus(BST *bst, const char *path)
 }
 
 /* =================================================================== */
-/*  Save (Ctrl+S): leave raw mode, prompt, write, re-enter raw mode.   */
+/*  Simpan (Ctrl+S): keluar mode raw, tanya nama, tulis, masuk raw lagi. */
 /* =================================================================== */
 static void do_save(const Doc *doc)
 {
-    disable_raw_mode();                 /* canonical input for fgets()  */
+    disable_raw_mode();                 /* input kanonik untuk fgets()  */
 
     fputs("\r\n", stdout);
-    fputs(ESC_CLEAR_TO_END, stdout);    /* clear any suggestion block   */
+    fputs(ESC_CLEAR_TO_END, stdout);    /* bersihkan blok saran apa pun */
     fputs("Save as: ", stdout);
     fflush(stdout);
 
@@ -363,14 +365,15 @@ static void do_save(const Doc *doc)
     }
     fflush(stdout);
 
-    enable_raw_mode();                  /* back to live typing          */
+    enable_raw_mode();                  /* kembali ke pengetikan live    */
 }
 
 /* =================================================================== */
-/*  Accept a suggestion: replace the typed partial word with the chosen */
-/*  completion. `index` is 0-based into the on-screen list (Tab uses 0, */
-/*  the number keys use 1..count-1). Does nothing if the index is out   */
-/*  of range, so callers do not need to pre-validate.                   */
+/*  Menerima sebuah saran: mengganti kata parsial yang diketik dengan    */
+/*  saran yang dipilih. `index` berbasis-0 ke dalam daftar di layar      */
+/*  (Tab memakai g_sugg.sel, yaitu item yang sedang disorot oleh panah). */
+/*  Tidak melakukan apa-apa kalau index di luar jangkauan, jadi pemanggil */
+/*  tidak perlu memvalidasi lebih dulu.                                  */
 /* =================================================================== */
 static void accept_suggestion(Doc *doc, const BST *bst, int index)
 {
@@ -381,12 +384,12 @@ static void accept_suggestion(Doc *doc, const BST *bst, int index)
     doc_current_word(doc, word, sizeof word);
     size_t typed = strlen(word);
 
-    /* Erase the partial word from the screen and the document... */
+    /* Hapus kata parsial dari layar dan dari dokumen... */
     for (size_t i = 0; i < typed; i++) {
         fputs("\b \b", stdout);
         doc_pop(doc);
     }
-    /* ...then type the full completion plus a trailing space. */
+    /* ...lalu ketikkan kata lengkapnya plus satu spasi di belakang. */
     for (const char *p = full; *p; p++) {
         doc_push(doc, *p);
         putchar(*p);
@@ -395,11 +398,11 @@ static void accept_suggestion(Doc *doc, const BST *bst, int index)
     putchar(' ');
 
     fflush(stdout);
-    render_synonyms(full, bst);         /* word is finished: thesaurus  */
+    render_synonyms(full, bst);         /* kata selesai: cari tesaurus  */
 }
 
 /* =================================================================== */
-/*  Backspace: delete one character and fix the screen.                */
+/*  Backspace: menghapus satu karakter dan membenahi tampilan layar.   */
 /* =================================================================== */
 static void handle_backspace(Doc *doc, const Trie *trie)
 {
@@ -407,20 +410,20 @@ static void handle_backspace(Doc *doc, const Trie *trie)
 
     char removed = doc_pop(doc);
     if (removed == '\n') {
-        /* Walk back up to the end of the now-previous line. Document
-         * lines start in column 1, so column = lastlinelen + 1. */
+        /* Naik kembali ke ujung baris yang kini jadi baris sebelumnya.
+         * Baris dokumen mulai di kolom 1, jadi kolom = panjangBarisAkhir + 1. */
         size_t col = doc_last_line_len(doc) + 1;
-        printf("\033[A\033[%zuG", col);   /* cursor up, then to column  */
+        printf("\033[A\033[%zuG", col);   /* kursor naik, lalu ke kolom  */
     } else {
-        fputs("\b \b", stdout);           /* rub out the character      */
+        fputs("\b \b", stdout);           /* hapus karakternya           */
     }
     fflush(stdout);
 
-    render_completions(doc, trie);        /* word shrank: refresh hints */
+    render_completions(doc, trie);        /* kata mengecil: segarkan saran */
 }
 
 /* =================================================================== */
-/*  Program entry point.                                               */
+/*  Titik masuk program.                                               */
 /* =================================================================== */
 int main(void)
 {
@@ -435,8 +438,8 @@ int main(void)
     int nthes  = load_thesaurus(bst, THES_PATH);
 
     enable_raw_mode();
-    /* Guarantee the terminal is restored on ANY exit path, including
-     * error exits and exit() from deep in the code. */
+    /* Menjamin terminal dikembalikan pada SEMUA jalur keluar, termasuk
+     * keluar karena error dan exit() dari mana pun di dalam kode. */
     atexit(disable_raw_mode);
 
     print_header();
@@ -446,7 +449,7 @@ int main(void)
     if (nthes == 0)
         fputs(" (note: no thesaurus loaded - synonyms disabled)\r\n",
               stdout);
-    fputs("\r\n", stdout);               /* blank line: typing starts here */
+    fputs("\r\n", stdout);               /* baris kosong: mulai mengetik di sini */
     fflush(stdout);
 
     Doc doc;
@@ -459,7 +462,7 @@ int main(void)
 
         switch (k) {
         case KEY_CTRL_Q:
-        case KEY_ESC:                          /* Esc also quits */
+        case KEY_ESC:                          /* Esc juga keluar */
             running = 0;
             break;
 
@@ -468,11 +471,11 @@ int main(void)
             break;
 
         case KEY_TAB:
-            accept_suggestion(&doc, bst, g_sugg.sel); /* accept highlighted */
+            accept_suggestion(&doc, bst, g_sugg.sel); /* terima yang disorot */
             break;
 
         case KEY_UP:
-        case KEY_LEFT:                          /* move highlight back */
+        case KEY_LEFT:                          /* geser sorotan mundur */
             if (g_sugg.count > 0) {
                 g_sugg.sel = (g_sugg.sel - 1 + g_sugg.count) % g_sugg.count;
                 draw_suggestion_block();
@@ -480,7 +483,7 @@ int main(void)
             break;
 
         case KEY_DOWN:
-        case KEY_RIGHT:                         /* move highlight forward */
+        case KEY_RIGHT:                         /* geser sorotan maju */
             if (g_sugg.count > 0) {
                 g_sugg.sel = (g_sugg.sel + 1) % g_sugg.count;
                 draw_suggestion_block();
@@ -492,7 +495,7 @@ int main(void)
             break;
 
         case KEY_ENTER: {
-            /* The word before the newline is now finished. */
+            /* Kata sebelum newline kini sudah selesai. */
             char word[BST_MAX_WORD];
             doc_current_word(&doc, word, sizeof word);
             doc_push(&doc, '\n');
@@ -503,7 +506,7 @@ int main(void)
         }
 
         case ' ': {
-            /* Space also finishes the current word. */
+            /* Spasi juga menyelesaikan kata saat ini. */
             char word[BST_MAX_WORD];
             doc_current_word(&doc, word, sizeof word);
             doc_push(&doc, ' ');
@@ -514,20 +517,20 @@ int main(void)
         }
 
         default:
-            /* Any printable ASCII character is typed into the document
-             * (digits included — selection is done with the arrows now). */
+            /* Karakter ASCII cetak apa pun diketik ke dokumen (angka pun
+             * termasuk — pemilihan sekarang dilakukan dengan tombol panah). */
             if (k >= 32 && k < 127) {
                 doc_push(&doc, (char)k);
                 putchar((char)k);
                 fflush(stdout);
-                render_completions(&doc, trie);   /* live autocomplete */
+                render_completions(&doc, trie);   /* autocomplete live */
             }
-            /* KEY_UNKNOWN and stray control codes are ignored. */
+            /* KEY_UNKNOWN dan kode kontrol yang nyasar diabaikan. */
             break;
         }
     }
 
-    /* Tidy exit: clear the suggestion area, restore the terminal, free. */
+    /* Keluar dengan rapi: bersihkan area saran, kembalikan terminal, bebaskan. */
     draw_below(NULL);
     fputs("\r\n-- notepad closed --\r\n", stdout);
     fflush(stdout);

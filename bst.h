@@ -1,47 +1,48 @@
-/* bst.h — Binary Search Tree ADT used as a thesaurus.
+/* bst.h — ADT Binary Search Tree yang dipakai sebagai tesaurus.
  *
- * Pure data-structure module: it stores (word -> synonym list) pairs
- * keyed on the word, ordered by strcmp, and answers exact-word lookups.
+ * Modul struktur data murni: menyimpan pasangan (kata -> daftar sinonim)
+ * berkunci pada kata, terurut dengan strcmp, dan menjawab pencarian kata
+ * secara persis (exact match).
  *
- * Feature powered by this ADT: synonym ("thesaurus") lookups.
+ * Fitur yang ditenagai ADT ini: pencarian sinonim ("tesaurus").
  */
 #ifndef BST_H
 #define BST_H
 
-#define BST_MAX_WORD      64   /* longest head-word                */
-#define BST_MAX_SYNONYMS  16   /* synonyms stored per word         */
-#define BST_MAX_SYN_LEN   64   /* longest single synonym           */
+#define BST_MAX_WORD      64   /* panjang maksimum kata kepala (key) */
+#define BST_MAX_SYNONYMS  16   /* jumlah sinonim per kata            */
+#define BST_MAX_SYN_LEN   64   /* panjang maksimum satu sinonim      */
 
-/* A fixed-capacity list of synonyms for one word. */
+/* Daftar sinonim berkapasitas tetap untuk satu kata. */
 typedef struct SynList {
     char words[BST_MAX_SYNONYMS][BST_MAX_SYN_LEN];
     int  count;
 } SynList;
 
-/* A BST node: the head-word (the key) plus its synonyms. */
+/* Node BST: kata kepala (key) beserta sinonim-sinonimnya. */
 typedef struct BSTNode {
     char word[BST_MAX_WORD];
     SynList syns;
     struct BSTNode *left, *right;
 } BSTNode;
 
-/* The BST handle. Callers treat this as opaque. */
+/* Pegangan (handle) BST. Pemanggil memperlakukannya sebagai opaque. */
 typedef struct BST {
     BSTNode *root;
 } BST;
 
-/* Create an empty BST. Returns NULL on allocation failure. */
+/* Membuat BST kosong. Mengembalikan NULL jika alokasi gagal. */
 BST *bst_create(void);
 
-/* Free every node and the handle. Safe on NULL. */
+/* Membebaskan setiap node beserta handle-nya. Aman untuk NULL. */
 void bst_free(BST *t);
 
-/* Insert `word` with its `syns`. Keys are ordered with strcmp.
- * If `word` already exists its synonym list is replaced. */
+/* Menyisipkan `word` beserta `syns`. Key diurutkan dengan strcmp.
+ * Kalau `word` sudah ada, daftar sinonimnya diganti. */
 void bst_insert(BST *t, const char *word, const SynList *syns);
 
-/* Search for an exact `word`. Returns its synonym list, or NULL if the
- * word is not in the tree. */
+/* Mencari `word` secara persis. Mengembalikan daftar sinonimnya, atau
+ * NULL kalau kata tidak ada di pohon. */
 const SynList *bst_search(const BST *t, const char *word);
 
 #endif /* BST_H */
